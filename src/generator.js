@@ -10,6 +10,19 @@ async function jget(url, headers = {}) {
   return res.json();
 }
 
+async function postJson(url, payload, headers = {}) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} for ${url}${body ? `: ${body.slice(0, 300)}` : ''}`);
+  }
+  return res.json();
+}
+
 function ratio(n, d) {
   const nn = Number(n), dd = Number(d);
   if (!dd) return 'Unknown';
@@ -162,7 +175,93 @@ async function overpassPOI(lat, lon, radiusM = 16093) {
   })).filter((x) => x.lat && x.lon);
 }
 
-async function generateAreaStudy({ address, radiusMiles = 10 }) {
+async function enrichWithOpenAI(markdown, context, openaiKey) {
+  const prompt = [
+    'You are enriching an Area Study markdown document.',
+    'Keep the same section and bullet structure.',
+    'Only improve lines where the answer is generic, placeholder, or missing.',
+    'Use concise, non-speculative wording and include caveats where data is uncertain.',
+    'Focus on Washington and Oregon context when relevant.',
+    'Return ONLY the full updated markdown text with no code fences or commentary.',
+    '',
+    'Context JSON:',
+    JSON.stringify(context)
+  ].join('\n');
+
+  const data = await postJson('https://api.openai.com/v1/responses', {
+    model: 'gpt-4.1-mini',
+    input: [
+      { role: 'system', content: [{ type: 'input_text', text: prompt }] },
+      { role: 'user', content: [{ type: 'input_text', text: markdown }] }
+    ],
+    temperature: 0.2
+  }, { Authorization: `Bearer ${openaiKey}` });
+
+  const enriched = data?.output_text?.trim();
+  if (!enriched) throw new Error('OpenAI enrichment returned empty output');
+  return enriched;
+}
+
+async function enrichWithClaude(markdown, context, claudeKey) {
+  const system = [
+    'You are enriching an Area Study markdown document.',
+    'Preserve sections and bullet structure.',
+    'Only improve weak placeholder answers; keep strong factual answers intact.',
+    'Use concise, non-speculative language and caveats when needed.',
+    'Prefer Washington/Oregon context when relevant.',
+    'Return only the full markdown document.'
+  ].join(' ');
+
+  const data = await postJson('https://api.anthropic.com/v1/messages', {
+    model: 'claude-3-5-sonnet-latest',
+    max_tokens: 4000,
+    temperature: 0.2,
+    system,
+    messages: [
+      {
+        role: 'user',
+        content: `Context JSON:\n${JSON.stringify(context)}\n\nMarkdown to enrich:\n${markdown}`
+      }
+    ]
+  }, {
+    'x-api-key': claudeKey,
+    'anthropic-version': '2023-06-01'
+  });
+
+  const enriched = (data?.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
+  if (!enriched) throw new Error('Claude enrichment returned empty output');
+  return enriched;
+}
+
+async function maybeEnrichReport(markdown, metadata, options = {}) {
+  const openaiKey = (options.openaiKey || '').trim();
+  const claudeKey = (options.claudeKey || '').trim();
+
+  if (!openaiKey && !claudeKey) {
+    return { reportMarkdown: markdown, enrichedBy: null, enrichmentError: null };
+  }
+
+  const context = {
+    resolvedAddress: metadata?.resolvedAddress,
+    coordinates: { lat: metadata?.lat, lon: metadata?.lon },
+    poiCount: metadata?.poiCount,
+    flood: metadata?.flood,
+    generatedAt: new Date().toISOString()
+  };
+
+  try {
+    if (claudeKey) {
+      const reportMarkdown = await enrichWithClaude(markdown, context, claudeKey);
+      return { reportMarkdown, enrichedBy: 'claude', enrichmentError: null };
+    }
+    const reportMarkdown = await enrichWithOpenAI(markdown, context, openaiKey);
+    return { reportMarkdown, enrichedBy: 'openai', enrichmentError: null };
+  } catch (err) {
+    return { reportMarkdown: markdown, enrichedBy: null, enrichmentError: err.message };
+  }
+}
+
+async function generateAreaStudy({ address, radiusMiles = 10, openaiKey = '', claudeKey = '' }) {
   const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
   const geo = await geocodeAddress(address);
   const lat = Number(geo.lat), lon = Number(geo.lon);
@@ -196,7 +295,7 @@ async function generateAreaStudy({ address, radiusMiles = 10 }) {
     'major financial drivers and industries': 'Infer from local business clusters, healthcare, retail, logistics, and public-sector employers.'
   };
 
-  const reportMarkdown = [
+  const baseReportMarkdown = [
     '# AreaForge Auto-Generated Area Study (WA/OR Focus)',
     '',
     `- Input address: ${address}`,
@@ -214,9 +313,16 @@ async function generateAreaStudy({ address, radiusMiles = 10 }) {
     fillTemplate(template, answers)
   ].join('\n');
 
+  const metadata = { resolvedAddress: geo.display_name, lat, lon, poiCount: poi.length, flood };
+  const enrichment = await maybeEnrichReport(baseReportMarkdown, metadata, { openaiKey, claudeKey });
+
   return {
-    reportMarkdown,
-    metadata: { resolvedAddress: geo.display_name, lat, lon, poiCount: poi.length, flood }
+    reportMarkdown: enrichment.reportMarkdown,
+    metadata: {
+      ...metadata,
+      enrichedBy: enrichment.enrichedBy,
+      enrichmentError: enrichment.enrichmentError
+    }
   };
 }
 

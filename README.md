@@ -11,6 +11,7 @@ Electron app that accepts an address (city + state), prioritizes Washington/Oreg
   - FEMA flood zone lookup
   - OpenStreetMap Overpass POIs
 - Template auto-fill with answers where data is available
+- Optional AI enrichment if user provides OpenAI or Claude API key
 - Export completed report to `.md` and `.pdf`
 
 ## Run locally
@@ -38,4 +39,10 @@ Edit `src/focus-regions.json`:
 
 - If `counties` is empty for a state, any county in that state is allowed.
 - If `counties` has values, those county names are preferred for that state.
+
+### Optional AI enrichment
+- Paste an OpenAI key and/or Claude key into the app before generating.
+- If both are set, Claude is tried first.
+- If enrichment fails, AreaForge keeps the base public-data report and shows the enrichment error in status.
+- Keys are used only for that generation request and are not written to disk by AreaForge.
 
