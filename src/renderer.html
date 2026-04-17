@@ -5,7 +5,7 @@
     <title>AreaForge</title>
     <style>
       body { font-family: Inter, system-ui, -apple-system, sans-serif; margin: 0; background: #0b1020; color: #e9eefc; }
-      .wrap { padding: 20px; display: grid; grid-template-rows: auto auto auto auto 1fr; gap: 12px; height: 100vh; box-sizing: border-box; }
+      .wrap { padding: 20px; display: grid; grid-template-rows: auto auto auto auto auto 1fr; gap: 12px; height: 100vh; box-sizing: border-box; }
       .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
       input, button, textarea, select { border-radius: 8px; border: 1px solid #2a355f; }
       input, select { padding: 10px; background:#141c36; color:#e9eefc; }
@@ -17,7 +17,14 @@
       #aiProvider { min-width: 180px; }
       #apiKey { flex:1; min-width: 320px; }
       #status { color:#a9b6dc; min-height: 1.2rem; }
+      .report-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; height:100%; min-height:0; }
+      .panel { min-height:0; display:flex; flex-direction:column; }
+      .panel-title { font-size:12px; color:#91a1d6; margin-bottom:6px; }
       textarea { width:100%; height:100%; background:#0f1730; color:#e9eefc; padding:12px; resize:none; }
+      #preview { width:100%; height:100%; background:#0f1730; color:#e9eefc; padding:12px; overflow:auto; border-radius:8px; border:1px solid #2a355f; box-sizing:border-box; }
+      #preview h1,#preview h2,#preview h3 { margin: 12px 0 8px; }
+      #preview p, #preview li { line-height: 1.4; }
+      #preview ul { padding-left: 20px; }
       .hint { font-size:12px; color:#91a1d6; }
     </style>
   </head>
@@ -50,7 +57,16 @@
       </div>
       <div class="hint">Public-only mode ignores API key. In enrichment mode, provider + key must match.</div>
       <div id="status">Ready.</div>
-      <textarea id="report" placeholder="Generated area study will appear here..."></textarea>
+      <div class="report-grid">
+        <div class="panel">
+          <div class="panel-title">Markdown</div>
+          <textarea id="report" placeholder="Generated area study will appear here..."></textarea>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Preview</div>
+          <div id="preview">Preview will appear here once data is generated.</div>
+        </div>
+      </div>
     </div>
     <script src="./renderer.js"></script>
   </body>

@@ -6,14 +6,78 @@ const aiProviderEl = document.getElementById('aiProvider');
 const apiKeyEl = document.getElementById('apiKey');
 const statusEl = document.getElementById('status');
 const reportEl = document.getElementById('report');
+const previewEl = document.getElementById('preview');
 const generateBtn = document.getElementById('generate');
 const saveMdBtn = document.getElementById('saveMd');
 const savePdfBtn = document.getElementById('savePdf');
 
 let latestReport = '';
+renderMarkdown('');
 
 function setStatus(msg) {
   statusEl.textContent = msg;
+}
+
+function escapeHtml(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderMarkdown(md = '') {
+  const lines = md.split(/\r?\n/);
+  let html = '';
+  let inList = false;
+
+  const closeList = () => {
+    if (inList) {
+      html += '</ul>';
+      inList = false;
+    }
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const safe = escapeHtml(line);
+
+    if (!line.trim()) {
+      closeList();
+      continue;
+    }
+
+    if (line.startsWith('### ')) {
+      closeList();
+      html += `<h3>${escapeHtml(line.slice(4))}</h3>`;
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      closeList();
+      html += `<h2>${escapeHtml(line.slice(3))}</h2>`;
+      continue;
+    }
+    if (line.startsWith('# ')) {
+      closeList();
+      html += `<h1>${escapeHtml(line.slice(2))}</h1>`;
+      continue;
+    }
+    if (/^[-*]\s+/.test(line)) {
+      if (!inList) {
+        html += '<ul>';
+        inList = true;
+      }
+      html += `<li>${escapeHtml(line.replace(/^[-*]\s+/, ''))}</li>`;
+      continue;
+    }
+
+    closeList();
+    html += `<p>${safe}</p>`;
+  }
+
+  closeList();
+  previewEl.innerHTML = html || 'Preview will appear here once data is generated.';
 }
 
 generateBtn.addEventListener('click', async () => {
@@ -50,6 +114,7 @@ generateBtn.addEventListener('click', async () => {
 
     latestReport = data.reportMarkdown;
     reportEl.value = latestReport;
+    renderMarkdown(latestReport);
 
     const enrichmentNote = data.metadata.enrichedBy
       ? ` | Enriched: ${data.metadata.enrichedBy}`
@@ -69,6 +134,11 @@ saveMdBtn.addEventListener('click', async () => {
   if (!latestReport) return;
   const out = await window.areaforge.saveMarkdown(latestReport);
   if (!out.canceled) setStatus(`Saved markdown: ${out.filePath}`);
+});
+
+reportEl.addEventListener('input', () => {
+  latestReport = reportEl.value;
+  renderMarkdown(latestReport);
 });
 
 savePdfBtn.addEventListener('click', async () => {

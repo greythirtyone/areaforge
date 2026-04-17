@@ -11,6 +11,7 @@ Electron app that accepts an address (city + state), prioritizes Washington/Oreg
   - FEMA flood zone lookup
   - OpenStreetMap Overpass POIs
 - Template auto-fill with answers where data is available
+- Live markdown + rendered preview pane after retrieval/enrichment
 - Optional AI enrichment if user provides OpenAI or Claude API key
 - Export completed report to `.md` and `.pdf`
 
