@@ -118,7 +118,7 @@ generateBtn.addEventListener('click', async () => {
 
     const enrichmentNote = data.metadata.enrichedBy
       ? ` | Enriched: ${data.metadata.enrichedBy}`
-      : (data.metadata.enrichmentError ? ' | Enrichment failed (used base report)' : '');
+      : (data.metadata.enrichmentError ? ` | Enrichment failed: ${data.metadata.enrichmentError}` : '');
 
     setStatus(`Done. ${data.metadata.resolvedAddress} | POIs: ${data.metadata.poiCount} | Flood zone: ${data.metadata.flood.fldZone}${enrichmentNote}`);
     saveMdBtn.disabled = false;
