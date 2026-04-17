@@ -80,9 +80,42 @@ function isPreferredResult(result, focusStates) {
   return false;
 }
 
+function sanitizeAddress(address = '') {
+  return String(address)
+    .replace(/^[-*•\s]+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function geocodeAddressCensus(address) {
+  const q = new URLSearchParams({
+    address,
+    benchmark: 'Public_AR_Current',
+    format: 'json'
+  });
+  const data = await jget(`https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?${q}`);
+  const match = data?.result?.addressMatches?.[0];
+  if (!match) return null;
+
+  const lat = match.coordinates?.y;
+  const lon = match.coordinates?.x;
+  if (lat == null || lon == null) return null;
+
+  return {
+    lat: String(lat),
+    lon: String(lon),
+    display_name: match.matchedAddress || address,
+    address: {
+      state: match.addressComponents?.state || '',
+      county: ''
+    }
+  };
+}
+
 async function geocodeAddress(address) {
+  const cleanAddress = sanitizeAddress(address);
   const focusStates = loadFocusRegions();
-  const queries = buildPreferredQueries(address, focusStates);
+  const queries = buildPreferredQueries(cleanAddress, focusStates);
   let fallback = null;
 
   for (const query of queries) {
@@ -106,7 +139,7 @@ async function geocodeAddress(address) {
 
   // Last-resort unrestricted lookup (still prefers WA/OR if present in results)
   const broad = new URLSearchParams({
-    q: address,
+    q: cleanAddress,
     format: 'jsonv2',
     addressdetails: '1',
     limit: '5'
@@ -121,6 +154,9 @@ async function geocodeAddress(address) {
       if (!fallback) fallback = candidate;
     }
   }
+
+  const censusCandidate = await geocodeAddressCensus(cleanAddress);
+  if (censusCandidate) return censusCandidate;
 
   if (fallback) return fallback;
   throw new Error('Address not found. Try adding street + city + state (or ZIP).');
@@ -317,13 +353,28 @@ async function generateAreaStudy({
   const geo = await geocodeAddress(address);
   const lat = Number(geo.lat), lon = Number(geo.lon);
 
-  const [geoCensus, flood, poi] = await Promise.all([
+  const [geoCensusRes, floodRes, poiRes] = await Promise.allSettled([
     censusGeographies(lon, lat),
     floodZone(lon, lat),
     overpassPOI(lat, lon, Math.round(radiusMiles * 1609.34))
   ]);
 
-  const acs = await acsSnapshot(geoCensus.stateFips, geoCensus.countyFips, geoCensus.placeFips);
+  const geoCensus = geoCensusRes.status === 'fulfilled'
+    ? geoCensusRes.value
+    : { county: null, place: null, stateFips: null, countyFips: null, placeFips: null };
+
+  const flood = floodRes.status === 'fulfilled'
+    ? floodRes.value
+    : { fldZone: 'Unknown', sfha: 'Unknown' };
+
+  const poi = poiRes.status === 'fulfilled' ? poiRes.value : [];
+
+  let acs = {};
+  try {
+    acs = await acsSnapshot(geoCensus.stateFips, geoCensus.countyFips, geoCensus.placeFips);
+  } catch {
+    acs = {};
+  }
   const place = acs.place || {};
   const county = acs.county || {};
 
