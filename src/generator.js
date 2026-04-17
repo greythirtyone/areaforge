@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const TEMPLATE_PATH = path.join(__dirname, 'template.md');
+const FOCUS_REGIONS_PATH = path.join(__dirname, 'focus-regions.json');
 
 async function jget(url, headers = {}) {
   const res = await fetch(url, { headers });
@@ -28,15 +29,47 @@ function fillTemplate(template, answers) {
   }).join('\n');
 }
 
-async function geocodeAddress(address) {
-  const queries = [
-    address,
-    `${address}, Washington`,
-    `${address}, Oregon`,
-    `${address}, WA`,
-    `${address}, OR`
-  ];
+function loadFocusRegions() {
+  const raw = fs.readFileSync(FOCUS_REGIONS_PATH, 'utf8');
+  const cfg = JSON.parse(raw);
+  return cfg?.states || [];
+}
 
+function normalizeCountyName(name = '') {
+  return name.toLowerCase().replace(/\s+county$/i, '').trim();
+}
+
+function buildPreferredQueries(address, focusStates) {
+  const base = [address];
+  for (const state of focusStates) {
+    base.push(`${address}, ${state.name}`);
+    for (const abbr of state.abbreviations || []) {
+      base.push(`${address}, ${abbr}`);
+    }
+  }
+  return [...new Set(base)];
+}
+
+function isPreferredResult(result, focusStates) {
+  const stateName = (result?.address?.state || '').toLowerCase();
+  const countyName = normalizeCountyName(result?.address?.county || '');
+
+  for (const state of focusStates) {
+    const stateMatch = stateName.includes((state.name || '').toLowerCase()) ||
+      (state.abbreviations || []).some((abbr) => stateName.includes(String(abbr).toLowerCase()));
+    if (!stateMatch) continue;
+
+    const counties = (state.counties || []).map(normalizeCountyName).filter(Boolean);
+    if (!counties.length) return true;
+    if (counties.includes(countyName)) return true;
+  }
+
+  return false;
+}
+
+async function geocodeAddress(address) {
+  const focusStates = loadFocusRegions();
+  const queries = buildPreferredQueries(address, focusStates);
   let fallback = null;
 
   for (const query of queries) {
@@ -52,8 +85,7 @@ async function geocodeAddress(address) {
     });
     if (data?.length) {
       const top = data[0];
-      const state = (top?.address?.state || '').toLowerCase();
-      if (state.includes('washington') || state.includes('oregon')) return top;
+      if (isPreferredResult(top, focusStates)) return top;
       if (!fallback) fallback = top;
     }
   }

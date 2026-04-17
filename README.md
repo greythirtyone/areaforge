@@ -4,6 +4,7 @@ Electron app that accepts an address (city + state), prioritizes Washington/Oreg
 
 ## Features
 - Address input and radius search
+- Extensible focus-region config (`src/focus-regions.json`) for preferred states/counties
 - Automated data pulls from:
   - Nominatim geocoder
   - US Census geographies + ACS snapshot
@@ -22,3 +23,19 @@ npm start
 ## Notes
 - Some template fields intentionally remain placeholders where no reliable public API source is integrated yet.
 - PDF export captures the renderer contents as displayed in the app.
+
+### Configure preferred states/counties
+Edit `src/focus-regions.json`:
+
+```json
+{
+  "states": [
+    { "name": "Washington", "abbreviations": ["WA"], "counties": ["King", "Pierce"] },
+    { "name": "Oregon", "abbreviations": ["OR"], "counties": [] }
+  ]
+}
+```
+
+- If `counties` is empty for a state, any county in that state is allowed.
+- If `counties` has values, those county names are preferred for that state.
+

@@ -1,0 +1,14 @@
+{
+  "states": [
+    {
+      "name": "Washington",
+      "abbreviations": ["WA"],
+      "counties": []
+    },
+    {
+      "name": "Oregon",
+      "abbreviations": ["OR"],
+      "counties": []
+    }
+  ]
+}
