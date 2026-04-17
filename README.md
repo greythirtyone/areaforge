@@ -1,6 +1,6 @@
 # AreaForge
 
-Electron app that accepts an address (city + state), pulls public datasets, auto-fills an Area Study template, and exports PDF/Markdown.
+Electron app that accepts an address (city + state), prioritizes Washington/Oregon results, pulls public datasets, auto-fills an Area Study template, and exports PDF/Markdown.
 
 ## Features
 - Address input and radius search

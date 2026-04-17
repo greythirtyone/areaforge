@@ -29,18 +29,37 @@ function fillTemplate(template, answers) {
 }
 
 async function geocodeAddress(address) {
-  const q = new URLSearchParams({
-    q: address,
-    format: 'jsonv2',
-    addressdetails: '1',
-    limit: '1',
-    countrycodes: 'us'
-  });
-  const data = await jget(`https://nominatim.openstreetmap.org/search?${q}`, {
-    'User-Agent': 'AreaForge/1.0'
-  });
-  if (!data?.length) throw new Error('Address not found');
-  return data[0];
+  const queries = [
+    address,
+    `${address}, Washington`,
+    `${address}, Oregon`,
+    `${address}, WA`,
+    `${address}, OR`
+  ];
+
+  let fallback = null;
+
+  for (const query of queries) {
+    const q = new URLSearchParams({
+      q: query,
+      format: 'jsonv2',
+      addressdetails: '1',
+      limit: '1',
+      countrycodes: 'us'
+    });
+    const data = await jget(`https://nominatim.openstreetmap.org/search?${q}`, {
+      'User-Agent': 'AreaForge/1.0'
+    });
+    if (data?.length) {
+      const top = data[0];
+      const state = (top?.address?.state || '').toLowerCase();
+      if (state.includes('washington') || state.includes('oregon')) return top;
+      if (!fallback) fallback = top;
+    }
+  }
+
+  if (fallback) return fallback;
+  throw new Error('Address not found');
 }
 
 async function censusGeographies(lon, lat) {
@@ -146,7 +165,7 @@ async function generateAreaStudy({ address, radiusMiles = 10 }) {
   };
 
   const reportMarkdown = [
-    '# AreaForge Auto-Generated Area Study',
+    '# AreaForge Auto-Generated Area Study (WA/OR Focus)',
     '',
     `- Input address: ${address}`,
     `- Resolved address: ${geo.display_name}`,
