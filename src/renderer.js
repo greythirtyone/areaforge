@@ -2,8 +2,8 @@ const addressEl = document.getElementById('address');
 const radiusEl = document.getElementById('radius');
 const enrichmentModeEl = document.getElementById('enrichmentMode');
 const aggressivenessEl = document.getElementById('aggressiveness');
-const openaiKeyEl = document.getElementById('openaiKey');
-const claudeKeyEl = document.getElementById('claudeKey');
+const aiProviderEl = document.getElementById('aiProvider');
+const apiKeyEl = document.getElementById('apiKey');
 const statusEl = document.getElementById('status');
 const reportEl = document.getElementById('report');
 const generateBtn = document.getElementById('generate');
@@ -21,8 +21,8 @@ generateBtn.addEventListener('click', async () => {
   const radiusMiles = Number(radiusEl.value || 10);
   const enrichmentMode = enrichmentModeEl.value;
   const aggressiveness = aggressivenessEl.value;
-  const openaiKey = openaiKeyEl.value.trim();
-  const claudeKey = claudeKeyEl.value.trim();
+  const aiProvider = aiProviderEl.value;
+  const apiKey = apiKeyEl.value.trim();
 
   if (!address) {
     setStatus('Please enter an address (including city/state).');
@@ -34,7 +34,7 @@ generateBtn.addEventListener('click', async () => {
   savePdfBtn.disabled = true;
 
   try {
-    const usingEnrichment = enrichmentMode === 'enrich' && Boolean(openaiKey || claudeKey);
+    const usingEnrichment = enrichmentMode === 'enrich' && Boolean(apiKey);
     setStatus(usingEnrichment
       ? `Generating + AI enrichment (${aggressiveness}) in progress...`
       : 'Generating report from public sources...');
@@ -44,8 +44,8 @@ generateBtn.addEventListener('click', async () => {
       radiusMiles,
       enrichmentMode,
       aggressiveness,
-      openaiKey,
-      claudeKey
+      aiProvider,
+      apiKey
     });
 
     latestReport = data.reportMarkdown;

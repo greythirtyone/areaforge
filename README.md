@@ -48,8 +48,8 @@ Edit `src/focus-regions.json`:
   - `conservative` (minimal edits)
   - `balanced` (default)
   - `maximal` (more aggressive improvements)
-- Paste an OpenAI key and/or Claude key into the app before generating.
-- If both are set, Claude is tried first.
+- Select provider (`OpenAI` or `Claude`) in the app.
+- Paste one API key for the selected provider before generating.
 - If enrichment fails, AreaForge keeps the base public-data report and shows the enrichment error in status.
 - Keys are used only for that generation request and are not written to disk by AreaForge.
 

@@ -251,15 +251,19 @@ async function enrichWithClaude(markdown, context, claudeKey, aggressiveness) {
 async function maybeEnrichReport(markdown, metadata, options = {}) {
   const enrichmentMode = String(options.enrichmentMode || 'public').toLowerCase();
   const aggressiveness = String(options.aggressiveness || 'balanced').toLowerCase();
-  const openaiKey = (options.openaiKey || '').trim();
-  const claudeKey = (options.claudeKey || '').trim();
+  const aiProvider = String(options.aiProvider || '').toLowerCase();
+  const apiKey = (options.apiKey || '').trim();
 
   if (enrichmentMode !== 'enrich') {
     return { reportMarkdown: markdown, enrichedBy: null, enrichmentError: null };
   }
 
-  if (!openaiKey && !claudeKey) {
+  if (!apiKey) {
     return { reportMarkdown: markdown, enrichedBy: null, enrichmentError: 'Enrichment mode enabled but no API key provided.' };
+  }
+
+  if (!['openai', 'claude'].includes(aiProvider)) {
+    return { reportMarkdown: markdown, enrichedBy: null, enrichmentError: 'Select an AI provider (OpenAI or Claude).' };
   }
 
   const context = {
@@ -271,11 +275,11 @@ async function maybeEnrichReport(markdown, metadata, options = {}) {
   };
 
   try {
-    if (claudeKey) {
-      const reportMarkdown = await enrichWithClaude(markdown, context, claudeKey, aggressiveness);
+    if (aiProvider === 'claude') {
+      const reportMarkdown = await enrichWithClaude(markdown, context, apiKey, aggressiveness);
       return { reportMarkdown, enrichedBy: `claude (${aggressiveness})`, enrichmentError: null };
     }
-    const reportMarkdown = await enrichWithOpenAI(markdown, context, openaiKey, aggressiveness);
+    const reportMarkdown = await enrichWithOpenAI(markdown, context, apiKey, aggressiveness);
     return { reportMarkdown, enrichedBy: `openai (${aggressiveness})`, enrichmentError: null };
   } catch (err) {
     return { reportMarkdown: markdown, enrichedBy: null, enrichmentError: err.message };
@@ -287,8 +291,8 @@ async function generateAreaStudy({
   radiusMiles = 10,
   enrichmentMode = 'public',
   aggressiveness = 'balanced',
-  openaiKey = '',
-  claudeKey = ''
+  aiProvider = 'openai',
+  apiKey = ''
 }) {
   const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
   const geo = await geocodeAddress(address);
@@ -345,8 +349,8 @@ async function generateAreaStudy({
   const enrichment = await maybeEnrichReport(baseReportMarkdown, metadata, {
     enrichmentMode,
     aggressiveness,
-    openaiKey,
-    claudeKey
+    aiProvider,
+    apiKey
   });
 
   return {

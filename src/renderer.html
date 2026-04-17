@@ -14,7 +14,8 @@
       button:disabled { opacity:.6; cursor:not-allowed; }
       #address { flex:1; min-width: 360px; }
       #radius { width:90px; }
-      #openaiKey, #claudeKey { flex:1; min-width: 240px; }
+      #aiProvider { min-width: 180px; }
+      #apiKey { flex:1; min-width: 320px; }
       #status { color:#a9b6dc; min-height: 1.2rem; }
       textarea { width:100%; height:100%; background:#0f1730; color:#e9eefc; padding:12px; resize:none; }
       .hint { font-size:12px; color:#91a1d6; }
@@ -41,10 +42,13 @@
         </select>
       </div>
       <div class="row">
-        <input id="openaiKey" type="password" placeholder="Optional OpenAI API key (sk-...)" />
-        <input id="claudeKey" type="password" placeholder="Optional Claude API key (sk-ant-...)" />
+        <select id="aiProvider">
+          <option value="openai">OpenAI</option>
+          <option value="claude">Claude</option>
+        </select>
+        <input id="apiKey" type="password" placeholder="Optional API key for selected provider" />
       </div>
-      <div class="hint">If both keys are provided, Claude is used first for enrichment. Public-only mode ignores API keys.</div>
+      <div class="hint">Public-only mode ignores API key. In enrichment mode, provider + key must match.</div>
       <div id="status">Ready.</div>
       <textarea id="report" placeholder="Generated area study will appear here..."></textarea>
     </div>
