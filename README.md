@@ -41,6 +41,13 @@ Edit `src/focus-regions.json`:
 - If `counties` has values, those county names are preferred for that state.
 
 ### Optional AI enrichment
+- Select mode in-app:
+  - `Public data only`
+  - `Public + AI enrichment`
+- Choose enrichment level:
+  - `conservative` (minimal edits)
+  - `balanced` (default)
+  - `maximal` (more aggressive improvements)
 - Paste an OpenAI key and/or Claude key into the app before generating.
 - If both are set, Claude is tried first.
 - If enrichment fails, AreaForge keeps the base public-data report and shows the enrichment error in status.

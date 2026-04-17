@@ -175,11 +175,24 @@ async function overpassPOI(lat, lon, radiusM = 16093) {
   })).filter((x) => x.lat && x.lon);
 }
 
-async function enrichWithOpenAI(markdown, context, openaiKey) {
+function getEnrichmentSettings(level = 'balanced') {
+  const key = String(level || 'balanced').toLowerCase();
+  if (key === 'conservative') {
+    return { temperature: 0.1, style: 'Make minimal edits, only replacing clearly weak placeholders.' };
+  }
+  if (key === 'maximal') {
+    return { temperature: 0.4, style: 'Aggressively improve weak sections while preserving structure and factual caveats.' };
+  }
+  return { temperature: 0.2, style: 'Improve weak placeholders with concise factual guidance.' };
+}
+
+async function enrichWithOpenAI(markdown, context, openaiKey, aggressiveness) {
+  const settings = getEnrichmentSettings(aggressiveness);
   const prompt = [
     'You are enriching an Area Study markdown document.',
     'Keep the same section and bullet structure.',
     'Only improve lines where the answer is generic, placeholder, or missing.',
+    settings.style,
     'Use concise, non-speculative wording and include caveats where data is uncertain.',
     'Focus on Washington and Oregon context when relevant.',
     'Return ONLY the full updated markdown text with no code fences or commentary.',
@@ -194,7 +207,7 @@ async function enrichWithOpenAI(markdown, context, openaiKey) {
       { role: 'system', content: [{ type: 'input_text', text: prompt }] },
       { role: 'user', content: [{ type: 'input_text', text: markdown }] }
     ],
-    temperature: 0.2
+    temperature: settings.temperature
   }, { Authorization: `Bearer ${openaiKey}` });
 
   const enriched = data?.output_text?.trim();
@@ -202,11 +215,13 @@ async function enrichWithOpenAI(markdown, context, openaiKey) {
   return enriched;
 }
 
-async function enrichWithClaude(markdown, context, claudeKey) {
+async function enrichWithClaude(markdown, context, claudeKey, aggressiveness) {
+  const settings = getEnrichmentSettings(aggressiveness);
   const system = [
     'You are enriching an Area Study markdown document.',
     'Preserve sections and bullet structure.',
     'Only improve weak placeholder answers; keep strong factual answers intact.',
+    settings.style,
     'Use concise, non-speculative language and caveats when needed.',
     'Prefer Washington/Oregon context when relevant.',
     'Return only the full markdown document.'
@@ -215,7 +230,7 @@ async function enrichWithClaude(markdown, context, claudeKey) {
   const data = await postJson('https://api.anthropic.com/v1/messages', {
     model: 'claude-3-5-sonnet-latest',
     max_tokens: 4000,
-    temperature: 0.2,
+    temperature: settings.temperature,
     system,
     messages: [
       {
@@ -234,11 +249,17 @@ async function enrichWithClaude(markdown, context, claudeKey) {
 }
 
 async function maybeEnrichReport(markdown, metadata, options = {}) {
+  const enrichmentMode = String(options.enrichmentMode || 'public').toLowerCase();
+  const aggressiveness = String(options.aggressiveness || 'balanced').toLowerCase();
   const openaiKey = (options.openaiKey || '').trim();
   const claudeKey = (options.claudeKey || '').trim();
 
-  if (!openaiKey && !claudeKey) {
+  if (enrichmentMode !== 'enrich') {
     return { reportMarkdown: markdown, enrichedBy: null, enrichmentError: null };
+  }
+
+  if (!openaiKey && !claudeKey) {
+    return { reportMarkdown: markdown, enrichedBy: null, enrichmentError: 'Enrichment mode enabled but no API key provided.' };
   }
 
   const context = {
@@ -251,17 +272,24 @@ async function maybeEnrichReport(markdown, metadata, options = {}) {
 
   try {
     if (claudeKey) {
-      const reportMarkdown = await enrichWithClaude(markdown, context, claudeKey);
-      return { reportMarkdown, enrichedBy: 'claude', enrichmentError: null };
+      const reportMarkdown = await enrichWithClaude(markdown, context, claudeKey, aggressiveness);
+      return { reportMarkdown, enrichedBy: `claude (${aggressiveness})`, enrichmentError: null };
     }
-    const reportMarkdown = await enrichWithOpenAI(markdown, context, openaiKey);
-    return { reportMarkdown, enrichedBy: 'openai', enrichmentError: null };
+    const reportMarkdown = await enrichWithOpenAI(markdown, context, openaiKey, aggressiveness);
+    return { reportMarkdown, enrichedBy: `openai (${aggressiveness})`, enrichmentError: null };
   } catch (err) {
     return { reportMarkdown: markdown, enrichedBy: null, enrichmentError: err.message };
   }
 }
 
-async function generateAreaStudy({ address, radiusMiles = 10, openaiKey = '', claudeKey = '' }) {
+async function generateAreaStudy({
+  address,
+  radiusMiles = 10,
+  enrichmentMode = 'public',
+  aggressiveness = 'balanced',
+  openaiKey = '',
+  claudeKey = ''
+}) {
   const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
   const geo = await geocodeAddress(address);
   const lat = Number(geo.lat), lon = Number(geo.lon);
@@ -314,7 +342,12 @@ async function generateAreaStudy({ address, radiusMiles = 10, openaiKey = '', cl
   ].join('\n');
 
   const metadata = { resolvedAddress: geo.display_name, lat, lon, poiCount: poi.length, flood };
-  const enrichment = await maybeEnrichReport(baseReportMarkdown, metadata, { openaiKey, claudeKey });
+  const enrichment = await maybeEnrichReport(baseReportMarkdown, metadata, {
+    enrichmentMode,
+    aggressiveness,
+    openaiKey,
+    claudeKey
+  });
 
   return {
     reportMarkdown: enrichment.reportMarkdown,

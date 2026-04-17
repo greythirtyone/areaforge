@@ -5,10 +5,10 @@
     <title>AreaForge</title>
     <style>
       body { font-family: Inter, system-ui, -apple-system, sans-serif; margin: 0; background: #0b1020; color: #e9eefc; }
-      .wrap { padding: 20px; display: grid; grid-template-rows: auto auto auto 1fr; gap: 12px; height: 100vh; box-sizing: border-box; }
+      .wrap { padding: 20px; display: grid; grid-template-rows: auto auto auto auto 1fr; gap: 12px; height: 100vh; box-sizing: border-box; }
       .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-      input, button, textarea { border-radius: 8px; border: 1px solid #2a355f; }
-      input { padding: 10px; background:#141c36; color:#e9eefc; }
+      input, button, textarea, select { border-radius: 8px; border: 1px solid #2a355f; }
+      input, select { padding: 10px; background:#141c36; color:#e9eefc; }
       button { padding: 10px 12px; background:#355dff; color:white; border:0; cursor:pointer; }
       button.secondary { background:#2c3a63; }
       button:disabled { opacity:.6; cursor:not-allowed; }
@@ -30,10 +30,21 @@
         <button id="savePdf" class="secondary" disabled>Export PDF</button>
       </div>
       <div class="row">
+        <select id="enrichmentMode">
+          <option value="public">Public data only</option>
+          <option value="enrich">Public + AI enrichment</option>
+        </select>
+        <select id="aggressiveness">
+          <option value="conservative">Enrichment: conservative</option>
+          <option value="balanced" selected>Enrichment: balanced</option>
+          <option value="maximal">Enrichment: maximal</option>
+        </select>
+      </div>
+      <div class="row">
         <input id="openaiKey" type="password" placeholder="Optional OpenAI API key (sk-...)" />
         <input id="claudeKey" type="password" placeholder="Optional Claude API key (sk-ant-...)" />
       </div>
-      <div class="hint">If both keys are provided, Claude is used first for enrichment.</div>
+      <div class="hint">If both keys are provided, Claude is used first for enrichment. Public-only mode ignores API keys.</div>
       <div id="status">Ready.</div>
       <textarea id="report" placeholder="Generated area study will appear here..."></textarea>
     </div>
