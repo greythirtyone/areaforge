@@ -90,21 +90,40 @@ async function geocodeAddress(address) {
       q: query,
       format: 'jsonv2',
       addressdetails: '1',
-      limit: '1',
+      limit: '5',
       countrycodes: 'us'
     });
     const data = await jget(`https://nominatim.openstreetmap.org/search?${q}`, {
       'User-Agent': 'AreaForge/1.0'
     });
     if (data?.length) {
-      const top = data[0];
-      if (isPreferredResult(top, focusStates)) return top;
-      if (!fallback) fallback = top;
+      for (const candidate of data) {
+        if (isPreferredResult(candidate, focusStates)) return candidate;
+        if (!fallback) fallback = candidate;
+      }
+    }
+  }
+
+  // Last-resort unrestricted lookup (still prefers WA/OR if present in results)
+  const broad = new URLSearchParams({
+    q: address,
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '5'
+  });
+  const broadData = await jget(`https://nominatim.openstreetmap.org/search?${broad}`, {
+    'User-Agent': 'AreaForge/1.0'
+  });
+
+  if (broadData?.length) {
+    for (const candidate of broadData) {
+      if (isPreferredResult(candidate, focusStates)) return candidate;
+      if (!fallback) fallback = candidate;
     }
   }
 
   if (fallback) return fallback;
-  throw new Error('Address not found');
+  throw new Error('Address not found. Try adding street + city + state (or ZIP).');
 }
 
 async function censusGeographies(lon, lat) {
